@@ -153,6 +153,11 @@ def cmd_build(args=None):
     html_path.write_text(final_html, encoding="utf-8")
     print(f"    Visualizador gerado: {html_path.relative_to(BASE_DIR)}")
 
+    # Garante arquivo .nojekyll para o GitHub Pages ignorar o processamento do Jekyll
+    nojekyll_path = DOCS_DIR / ".nojekyll"
+    if not nojekyll_path.exists():
+        nojekyll_path.write_text("", encoding="utf-8")
+
     print(f"[+] Build concluído com sucesso!")
     print(f"    Notas: {graph_data['stats']['total_notes']} | Conexões: {graph_data['stats']['total_links']}")
     return 0
@@ -242,3 +247,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
