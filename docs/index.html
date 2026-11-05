@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ralph · Segundo Cérebro</title>
+  <!-- Tailwind CSS & D3.js & Marked.js -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              projects: '#38bdf8',
+              areas: '#34d399',
+              resources: '#a78bfa',
+              archives: '#94a3b8',
+              inbox: '#fbbf24',
+              dark: '#0b0f19',
+              card: '#111827',
+              border: '#1f2937'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    
+    .link-line {
+      stroke: #374151;
+      stroke-opacity: 0.6;
+      stroke-width: 1.5px;
+      transition: stroke 0.2s, stroke-width 0.2s, stroke-opacity 0.2s;
+    }
+    .link-line.highlighted {
+      stroke: #60a5fa;
+      stroke-opacity: 1;
+      stroke-width: 2.5px;
+    }
+    .node-circle {
+      cursor: pointer;
+      transition: transform 0.2s, filter 0.2s;
+    }
+    .node-circle:hover {
+      filter: drop-shadow(0 0 8px currentColor);
+    }
+    .node-circle.active {
+      stroke: #ffffff;
+      stroke-width: 3px;
+      filter: drop-shadow(0 0 12px currentColor);
+    }
+    .node-text {
+      font-size: 11px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      fill: #9ca3af;
+      pointer-events: none;
+      transition: fill 0.2s, font-weight 0.2s;
+    }
+    .node-text.active {
+      fill: #f3f4f6;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    /* Prose styling */
+    .prose-custom h1 { font-size: 1.6rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.75rem; color: #f9fafb; }
+    .prose-custom h2 { font-size: 1.3rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.5rem; color: #e5e7eb; border-bottom: 1px solid #1f2937; padding-bottom: 0.25rem; }
+    .prose-custom h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; color: #d1d5db; }
+    .prose-custom p { margin-top: 0.5rem; margin-bottom: 0.75rem; line-height: 1.6; color: #9ca3af; }
+    .prose-custom ul { list-style-type: disc; padding-left: 1.25rem; margin-top: 0.5rem; margin-bottom: 0.75rem; color: #9ca3af; }
+    .prose-custom ol { list-style-type: decimal; padding-left: 1.25rem; margin-top: 0.5rem; margin-bottom: 0.75rem; color: #9ca3af; }
+    .prose-custom li { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+    .prose-custom blockquote { border-left: 3px solid #6366f1; padding-left: 0.75rem; margin-top: 0.75rem; margin-bottom: 0.75rem; color: #cbd5e1; font-style: italic; background: rgba(99, 102, 241, 0.05); padding-top: 0.25rem; padding-bottom: 0.25rem; border-radius: 0 4px 4px 0; }
+    .prose-custom code { background: #1f2937; color: #e0e7ff; padding: 0.15rem 0.35rem; border-radius: 0.25rem; font-size: 0.85em; font-family: monospace; }
+    .prose-custom pre { background: #111827; border: 1px solid #1f2937; border-radius: 0.5rem; padding: 0.75rem; overflow-x: auto; margin-top: 0.75rem; margin-bottom: 0.75rem; }
+    .prose-custom pre code { background: transparent; padding: 0; }
+    .prose-custom a { color: #818cf8; text-decoration: underline; }
+    .prose-custom hr { border: 0; border-top: 1px solid #1f2937; margin: 1.5rem 0; }
+    .wikilink {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc !important;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-decoration: none !important;
+      font-weight: 500;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .wikilink:hover {
+      background: rgba(99, 102, 241, 0.3);
+      color: #ffffff !important;
+      border-color: #818cf8;
+    }
+  </style>
+</head>
+<body class="bg-[#0b0f19] text-gray-200 h-screen w-screen flex flex-col overflow-hidden font-sans select-none">
+
+  <!-- Top Navigation Header -->
+  <header class="h-14 border-b border-gray-800 bg-gray-900/80 backdrop-blur px-4 flex items-center justify-between shrink-0 z-20">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
+        R
+      </div>
+      <div>
+        <h1 class="font-bold text-sm tracking-wide text-gray-100 flex items-center gap-2">
+          Ralph <span class="text-xs font-normal text-gray-400">· Segundo Cérebro</span>
+        </h1>
+        <div class="text-[10px] text-gray-400 flex items-center gap-2">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span>C.O.D.E. + P.A.R.A. + LLM Wiki</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Search & Filter -->
+    <div class="flex items-center gap-2 flex-1 max-w-xl mx-4">
+      <div class="relative w-full">
+        <input 
+          id="search-input" 
+          type="text" 
+          placeholder="Buscar notas, tags, conteúdos... (Pressione /)" 
+          class="w-full bg-gray-800/80 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-gray-200 placeholder-gray-400 focus:outline-none focus:border-indigo-500 transition-colors pl-8 select-text"
+        />
+        <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="flex items-center gap-1 text-xs">
+        <button onclick="filterCategory('all')" class="cat-pill active px-2.5 py-1 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 transition" data-cat="all">Todas</button>
+        <button onclick="filterCategory('projects')" class="cat-pill px-2 py-1 rounded bg-gray-800 text-[#38bdf8] hover:bg-gray-700 transition" data-cat="projects">Projetos</button>
+        <button onclick="filterCategory('areas')" class="cat-pill px-2 py-1 rounded bg-gray-800 text-[#34d399] hover:bg-gray-700 transition" data-cat="areas">Áreas</button>
+        <button onclick="filterCategory('resources')" class="cat-pill px-2 py-1 rounded bg-gray-800 text-[#a78bfa] hover:bg-gray-700 transition" data-cat="resources">Recursos</button>
+        <button onclick="filterCategory('inbox')" class="cat-pill px-2 py-1 rounded bg-gray-800 text-[#fbbf24] hover:bg-gray-700 transition" data-cat="inbox">Inbox</button>
+      </div>
+    </div>
+
+    <!-- Right Stats & Actions -->
+    <div class="flex items-center gap-3 text-xs">
+      <div class="hidden md:flex items-center gap-3 text-gray-400 bg-gray-800/60 px-3 py-1 rounded-md border border-gray-800">
+        <div>Notas: <strong id="stat-notes" class="text-gray-200">0</strong></div>
+        <div>Conexões: <strong id="stat-links" class="text-gray-200">0</strong></div>
+      </div>
+
+      <button onclick="resetGraphView()" title="Centralizar Grafo" class="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+      </button>
+
+      <button onclick="toggleSidePanel()" title="Alternar Painel Lateral" class="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View Area (Graph + Reader Panel) -->
+  <main class="flex-1 flex relative overflow-hidden">
+    
+    <!-- D3 Interactive Graph Area -->
+    <div id="graph-container" class="flex-1 h-full relative cursor-grab active:cursor-grabbing">
+      <svg id="graph-svg" class="w-full h-full"></svg>
+
+      <!-- Graph Legend Overlay -->
+      <div class="absolute bottom-4 left-4 bg-gray-900/90 backdrop-blur border border-gray-800 rounded-lg p-2.5 text-[11px] flex flex-col gap-1.5 shadow-xl pointer-events-auto">
+        <div class="font-semibold text-gray-400 uppercase tracking-wider text-[9px] mb-1">Legenda P.A.R.A.</div>
+        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-[#38bdf8]"></span><span class="text-gray-300">01 Projetos (Curto Prazo)</span></div>
+        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-[#34d399]"></span><span class="text-gray-300">02 Áreas (Contínuo)</span></div>
+        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-[#a78bfa]"></span><span class="text-gray-300">03 Recursos (LLM Wiki)</span></div>
+        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-[#fbbf24]"></span><span class="text-gray-300">00 Inbox (Captura)</span></div>
+        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-[#94a3b8]"></span><span class="text-gray-300">04 Arquivos (Inativo)</span></div>
+      </div>
+    </div>
+
+    <!-- Note Reader Slide Panel -->
+    <aside id="side-panel" class="w-[450px] lg:w-[520px] border-l border-gray-800 bg-[#0f1423] flex flex-col h-full z-10 transition-all duration-300 shadow-2xl shrink-0 select-text">
+      
+      <!-- Panel Header -->
+      <div class="p-4 border-b border-gray-800 flex items-start justify-between bg-gray-900/60">
+        <div>
+          <div class="flex items-center gap-2 mb-1.5">
+            <span id="panel-badge-category" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-indigo-500/30 bg-indigo-500/10 text-indigo-400">
+              RECURSO
+            </span>
+            <span id="panel-badge-status" class="text-[10px] text-gray-400 border border-gray-700 px-1.5 py-0.5 rounded">
+              active
+            </span>
+          </div>
+          <h2 id="panel-title" class="text-lg font-bold text-white leading-tight">
+            Selecione uma nota no grafo
+          </h2>
+        </div>
+
+        <button onclick="closeSidePanel()" class="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <!-- Metadata Bar -->
+      <div id="panel-metadata" class="px-4 py-2 border-b border-gray-800/80 bg-gray-950/40 text-xs text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
+        <div>Caminho: <span id="meta-path" class="text-gray-300 font-mono text-[11px]">-</span></div>
+        <div>Atualizado: <span id="meta-date" class="text-gray-300">-</span></div>
+      </div>
+
+      <!-- Note Content (Scrollable) -->
+      <div class="flex-1 overflow-y-auto p-5">
+        
+        <!-- Summary Box -->
+        <div id="panel-summary-box" class="mb-4 p-3 rounded-lg bg-indigo-950/30 border border-indigo-800/40 text-xs text-indigo-200 hidden">
+          <div class="font-semibold text-indigo-400 uppercase text-[9px] tracking-wider mb-1">Síntese (OKF)</div>
+          <p id="panel-summary" class="italic leading-relaxed"></p>
+        </div>
+
+        <!-- Tags List -->
+        <div id="panel-tags" class="flex flex-wrap gap-1.5 mb-4"></div>
+
+        <!-- Rendered Markdown Body -->
+        <div id="panel-markdown" class="prose-custom text-sm">
+          <p class="text-gray-400">Clique em qualquer nó do grafo para visualizar seu conteúdo destilado, metadados OKF e conexões bidirecionais.</p>
+        </div>
+
+        <!-- Connected Notes / Backlinks -->
+        <div class="mt-8 pt-4 border-t border-gray-800">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Conexões desta Nota</h3>
+          <div id="panel-connections" class="flex flex-col gap-1.5 text-xs"></div>
+        </div>
+
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- Embedded Vault Data Injected by ralph.py -->
+  <script id="vault-data" type="application/json">
+    {"nodes": [{"id": "ideias-iniciais", "title": "Ideias Iniciais e Próximas Capturas", "path": "00_Inbox/ideias-iniciais.md", "folder": "00_Inbox", "category": "inbox", "color": "#fbbf24", "tags": ["inbox", "rascunho"], "created": "2026-11-05", "updated": "2026-11-05", "status": "draft", "summary": "Rascunho de ideias para testar o fluxo de captura e destilação com IA.", "degree": 2, "content": "# Ideias Iniciais e Próximas Capturas\n\n> [!NOTE]\n> Nota de teste para o fluxo C.O.D.E. (Capture). Esta nota pode ser destilada pelo agente para um novo recurso ou projeto.\n\n## Anotações Rápidas\n- Explorar formas de importar destaques do Kindle ou artigos do Readwise / Omnivore diretamente para o Inbox.\n- Criar um script para gerar relatórios semanais de conexões recém-adicionadas.\n- Conectar o segundo cérebro com fluxos de trabalho de agentes de IA locais.\n\n## Relações Preliminares\n- Relaciona-se com [[gestao-do-conhecimento]] e [[llm-wiki-karpathy]]."}, {"id": "lancamento-segundo-cerebro", "title": "Lançamento do Segundo Cérebro (Ralph)", "path": "01_Projects/lancamento-segundo-cerebro.md", "folder": "01_Projects", "category": "projects", "color": "#38bdf8", "tags": ["projeto", "segundo-cerebro", "setup", "github"], "created": "2026-11-05", "updated": "2026-11-05", "status": "active", "summary": "Estruturação, implementação da CLI ralph.py, visualizador HTML interativo em D3.js e publicação contínua no GitHub Pages.", "degree": 11, "content": "# Lançamento do Segundo Cérebro (Ralph)\n\n> **Objetivo Final**: Ter um ambiente unificado onde ideias capturadas são destiladas por LLMs, organizadas via P.A.R.A. e visualizadas em grafo interativo público no GitHub Pages.\n> **Prazo**: 2026-11-10\n\n---\n\n## 1. Contexto & Motivação\nA sobrecarga de informação exige um sistema digital confiável. Combinando a simplicidade de arquivos Markdown, a elegância do [[metodo-para-tiago-forte]], o rigor dos metadados [[open-knowledge-format]] e a automação do [[llm-wiki-karpathy]], o projeto Ralph centraliza o fluxo cognitivo pessoal.\n\n---\n\n## 2. Ações & Entregáveis\n- [x] Inicialização do repositório Git e estrutura de pastas P.A.R.A.\n- [x] Criação dos templates com metadados OKF.\n- [ ] Implementação da ferramenta CLI `ralph.py` (new, check, build, serve, sync).\n- [ ] Desenvolvimento do dashboard HTML com grafo D3.js estilo Obsidian Publish.\n- [ ] Configuração do GitHub Actions para deploy no GitHub Pages.\n- [ ] Primeiro push para o repositório remoto.\n\n---\n\n## 3. Conexões no Grafo\n- [[llm-wiki-karpathy]]: Conceito de base para o processamento de notas.\n- [[metodo-para-tiago-forte]]: Organização e classificação do projeto.\n- [[gestao-do-conhecimento]]: Área de vida à qual este projeto pertence.\n- [[open-knowledge-format]]: Validação e estrutura dos metadados."}, {"id": "gestao-do-conhecimento", "title": "Gestão do Conhecimento Pessoal (PKM)", "path": "02_Areas/gestao-do-conhecimento.md", "folder": "02_Areas", "category": "areas", "color": "#34d399", "tags": ["area", "pkm", "produtividade", "habitos"], "created": "2026-11-05", "updated": "2026-11-05", "status": "active", "summary": "Esfera de responsabilidade contínua dedicada à captura sistemática, curadoria, destilação de aprendizados e manutenção da saúde do Segundo Cérebro.", "degree": 8, "content": "# Gestão do Conhecimento Pessoal (PKM)\n\n> **Padrão de Qualidade**: O Segundo Cérebro deve ser um jardim digital bem podado, não um lixão de links não lidos. Revisões regulares garantem que o conhecimento acumulado continue vivo e útil.\n\n---\n\n## 1. Responsabilidades Contínuas\n1. **Curadoria do Inbox**: Limpar `00_Inbox` semanalmente, transformando rascunhos em projetos ou recursos.\n2. **Manutenção do Grafo**: Rodar periodicamente `python ralph.py check` para resolver nós órfãos ou links quebrados.\n3. **Destilação com IA**: Utilizar agentes de inteligência artificial ([[llm-wiki-karpathy]]) para reescrever conceitos e manter páginas densas.\n\n---\n\n## 2. Projetos Vinculados\n- [[lancamento-segundo-cerebro]]: Criação e automatização do ambiente Ralph.\n\n---\n\n## 3. Recursos & Referências\n- [[metodo-para-tiago-forte]]: Metodologia de suporte contínuo.\n- [[open-knowledge-format]]: Regra de padronização das anotações."}, {"id": "llm-wiki-karpathy", "title": "Conceito de LLM Wiki por Andrej Karpathy", "path": "03_Resources/llm-wiki-karpathy.md", "folder": "03_Resources", "category": "resources", "color": "#a78bfa", "tags": ["ia", "karpathy", "llm-wiki", "segundo-cerebro"], "created": "2026-11-05", "updated": "2026-11-05", "status": "active", "summary": "O conceito de LLM Wiki proposto por Andrej Karpathy: markdown puro como substrato universal e modelos de linguagem como mantenedores autônomos de síntese e conexões.", "degree": 12, "content": "# Conceito de LLM Wiki por Andrej Karpathy\n\n> **Resumo Executivo**: Em vez de depender de bancos de dados vetoriais complexos e fragmentados para RAG efêmero, o conceito de **LLM Wiki** propõe que uma IA mantenha e refine ativamente um repositório hierárquico em Markdown puro. A IA atua como curadora, destiladora e indexadora contínua do conhecimento pessoal.\n\n---\n\n## 1. Princípios Chave da LLM Wiki\n\n1. **Markdown como Substrato Eterno**: \n   - Arquivos `.md` simples são portáteis, versionáveis em Git, legíveis por humanos e ideais para o contexto de qualquer LLM.\n2. **Ciclo de Ingestão e Destilação**:\n   - Entradas brutas (artigos, ideias soltas, transcrições) são absorvidas pelo agente.\n   - O agente não apenas armazena: ele **re-escreve**, sintetiza, resolve contradições e cria páginas enciclopédicas ricas.\n3. **Links Bidirecionais e Índices Vivos**:\n   - O agente detecta relações conceituais e adiciona links no padrão `[[Nome da Nota]]`.\n   - Atualiza páginas centrais (MOCs - Maps of Content) e índices gerais sem intervenção manual exaustiva.\n\n---\n\n## 2. Integração com a Metodologia de Tiago Forte\n\nA LLM Wiki potencializa diretamente as etapas de **Distill (Destilar)** e **Express (Expressar)** do método [[metodo-para-tiago-forte]]:\n- O humano foca na **Captura** (`00_Inbox`) e na definição de prioridades (`01_Projects`).\n- O LLM atua na transformação de notas brutas em **Recursos** consolidados (`03_Resources`).\n\nPara garantir que essas notas sejam padronizadas e reutilizáveis entre ferramentas, adotamos o [[open-knowledge-format]].\n\n---\n\n## 3. Conexões no Grafo\n- [[metodo-para-tiago-forte]]: Framework estrutural para organizar o repositório.\n- [[open-knowledge-format]]: Padrão de metadados para garantir legibilidade de máquina.\n- [[lancamento-segundo-cerebro]]: Projeto prático que implementa este conceito."}, {"id": "metodo-para-tiago-forte", "title": "Método P.A.R.A. e Fluxo C.O.D.E. de Tiago Forte", "path": "03_Resources/metodo-para-tiago-forte.md", "folder": "03_Resources", "category": "resources", "color": "#a78bfa", "tags": ["tiago-forte", "para", "code", "produtividade", "segundo-cerebro"], "created": "2026-11-05", "updated": "2026-11-05", "status": "active", "summary": "Visão aprofundada da metodologia de Segundo Cérebro de Tiago Forte, dividida no fluxo de processamento C.O.D.E. e na hierarquia de pastas P.A.R.A.", "degree": 12, "content": "# Método P.A.R.A. e Fluxo C.O.D.E. de Tiago Forte\n\n> **Resumo Executivo**: O sistema divide-se em **como a informação se move** (C.O.D.E.) e **onde a informação mora** (P.A.R.A.), organizando as notas não pela fonte de origem, mas pela utilidade e acionabilidade futura.\n\n---\n\n## 1. O Fluxo C.O.D.E. (Processamento)\n\n1. **Capture (Capturar)**: Guardar apenas o que ressoa e agrega valor. Nada de salvar a internet inteira.\n2. **Organize (Organizar)**: Alocar nas pastas certas pensando em *onde* você precisará dessa nota.\n3. **Distill (Destilar)**: Resumir progressivamente até sobrar a essência acionável. Aqui entra o apoio da [[llm-wiki-karpathy]].\n4. **Express (Expressar)**: Criar outputs reais — artigos, relatórios, projetos e códigos.\n\n---\n\n## 2. A Estrutura P.A.R.A. (Hierarquia de Arquivos)\n\n- **01_Projects (Projetos)**: Esforços de curto prazo com prazos definidos e resultados específicos (ex.: [[lancamento-segundo-cerebro]]).\n- **02_Areas (Áreas)**: Esferas de responsabilidade contínua sem data de término (ex.: [[gestao-do-conhecimento]], Saúde, Finanças).\n- **03_Resources (Recursos)**: Temas de interesse geral, referências, guias e conceitos permanentes.\n- **04_Archives (Arquivos)**: Itens inativos de todas as três categorias anteriores para consulta histórica.\n\n---\n\n## 3. Conexões no Grafo\n- [[llm-wiki-karpathy]]: O motor de destilação contínua para Recursos.\n- [[gestao-do-conhecimento]]: Área responsável pela manutenção do hábito do Segundo Cérebro.\n- [[open-knowledge-format]]: Como padronizamos o cabeçalho de cada uma dessas notas."}, {"id": "open-knowledge-format", "title": "Open Knowledge Format (OKF)", "path": "03_Resources/open-knowledge-format.md", "folder": "03_Resources", "category": "resources", "color": "#a78bfa", "tags": ["okf", "padrao", "metadados", "interoperabilidade"], "created": "2026-11-05", "updated": "2026-11-05", "status": "active", "summary": "Especificação de metadados abertos em YAML frontmatter para anotações em Markdown, garantindo portabilidade entre Obsidian, scripts CLI e páginas web.", "degree": 9, "content": "# Open Knowledge Format (OKF)\n\n> **Resumo Executivo**: O OKF estabelece um contrato de metadados previsível para cada documento Markdown no Segundo Cérebro. Isso permite que parsers, agentes inteligentes e ferramentas de visualização em grafo naveguem e indexem a base sem ambiguidade.\n\n---\n\n## 1. Campos Padrão do Frontmatter\n\n```yaml\n---\ntitle: \"Nome Canônico da Nota\"\ncategory: \"projects | areas | resources | archives | inbox\"\ntags: [\"tag1\", \"tag2\"]\ncreated: \"YYYY-MM-DD\"\nupdated: \"YYYY-MM-DD\"\nstatus: \"draft | active | completed | archived\"\nauthor: \"gugogabrdf\"\nlicense: \"CC-BY-4.0\"\nsummary: \"Resumo em 1-2 frases para pré-visualização e busca rápida.\"\n---\n```\n\n---\n\n## 2. Vantagens na Prática\n\n1. **Interoperabilidade Total**: Compatível nativamente com Obsidian, VS Code, Antigravity, Claude Code e geradores estáticos.\n2. **Filtragem no Visualizador**: O dashboard HTML usa os campos `category` e `tags` para colorir e filtrar nós dinamicamente.\n3. **Consistência para Agentes**: As IAs leem o bloco YAML para entender imediatamente o contexto antes de processar o corpo da nota.\n\n---\n\n## 3. Conexões no Grafo\n- [[llm-wiki-karpathy]]: Utiliza os metadados para construir índices e checar integridade.\n- [[metodo-para-tiago-forte]]: Define as categorias aceitas no campo `category`.\n- [[lancamento-segundo-cerebro]]: Implementa a validação do formato via script de checagem."}], "links": [{"source": "ideias-iniciais", "target": "gestao-do-conhecimento", "label": "gestao-do-conhecimento"}, {"source": "ideias-iniciais", "target": "llm-wiki-karpathy", "label": "llm-wiki-karpathy"}, {"source": "lancamento-segundo-cerebro", "target": "metodo-para-tiago-forte", "label": "metodo-para-tiago-forte"}, {"source": "lancamento-segundo-cerebro", "target": "open-knowledge-format", "label": "open-knowledge-format"}, {"source": "lancamento-segundo-cerebro", "target": "llm-wiki-karpathy", "label": "llm-wiki-karpathy"}, {"source": "lancamento-segundo-cerebro", "target": "gestao-do-conhecimento", "label": "gestao-do-conhecimento"}, {"source": "gestao-do-conhecimento", "target": "llm-wiki-karpathy", "label": "llm-wiki-karpathy"}, {"source": "gestao-do-conhecimento", "target": "metodo-para-tiago-forte", "label": "metodo-para-tiago-forte"}, {"source": "gestao-do-conhecimento", "target": "open-knowledge-format", "label": "open-knowledge-format"}, {"source": "llm-wiki-karpathy", "target": "metodo-para-tiago-forte", "label": "metodo-para-tiago-forte"}, {"source": "llm-wiki-karpathy", "target": "open-knowledge-format", "label": "open-knowledge-format"}, {"source": "metodo-para-tiago-forte", "target": "open-knowledge-format", "label": "open-knowledge-format"}], "stats": {"total_notes": 6, "total_links": 12, "categories": {"projects": 1, "areas": 1, "resources": 3, "archives": 0, "inbox": 1}}}
+  </script>
+
+  <!-- Graph & Interactivity Script -->
+  <script>
+    const rawData = JSON.parse(document.getElementById('vault-data').textContent);
+    const nodes = rawData.nodes;
+    const links = rawData.links;
+    const stats = rawData.stats;
+
+    // Update Header Stats
+    document.getElementById('stat-notes').textContent = stats.total_notes;
+    document.getElementById('stat-links').textContent = stats.total_links;
+
+    // State
+    let activeCategory = 'all';
+    let selectedNodeId = null;
+    let filteredNodes = [...nodes];
+    let filteredLinks = [...links];
+
+    // Node lookup maps
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+    // Setup D3 Simulation
+    const container = document.getElementById('graph-container');
+    const svg = d3.select('#graph-svg');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    const g = svg.append('g').attr('class', 'main-layer');
+
+    // Zoom setup
+    const zoom = d3.zoom()
+      .scaleExtent([0.1, 4])
+      .on('zoom', (event) => {
+        g.attr('transform', event.transform);
+      });
+    svg.call(zoom);
+
+    // Forces
+    const simulation = d3.forceSimulation(filteredNodes)
+      .force('link', d3.forceLink(filteredLinks).id(d => d.id).distance(100))
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide().radius(d => getRadius(d) + 12));
+
+    // Elements
+    let linkElements = g.append('g').attr('class', 'links').selectAll('line');
+    let nodeElements = g.append('g').attr('class', 'nodes').selectAll('g');
+
+    function getRadius(d) {
+      return Math.max(6, Math.min(18, 7 + (d.degree || 0) * 2.5));
+    }
+
+    function renderGraph() {
+      // Links
+      linkElements = linkElements.data(filteredLinks, d => `${d.source.id || d.source}-${d.target.id || d.target}`);
+      linkElements.exit().remove();
+      const linkEnter = linkElements.enter().append('line')
+        .attr('class', 'link-line');
+      linkElements = linkEnter.merge(linkElements);
+
+      // Nodes
+      nodeElements = nodeElements.data(filteredNodes, d => d.id);
+      nodeElements.exit().remove();
+
+      const nodeEnter = nodeElements.enter().append('g')
+        .attr('class', 'node-group')
+        .call(d3.drag()
+          .on('start', dragStarted)
+          .on('drag', dragged)
+          .on('end', dragEnded)
+        )
+        .on('click', (event, d) => {
+          event.stopPropagation();
+          selectNode(d.id);
+        })
+        .on('mouseenter', (event, d) => highlightNeighbors(d))
+        .on('mouseleave', () => resetHighlights());
+
+      // Node circles
+      nodeEnter.append('circle')
+        .attr('class', 'node-circle')
+        .attr('r', d => getRadius(d))
+        .attr('fill', d => d.color)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2);
+
+      // Node labels
+      nodeEnter.append('text')
+        .attr('class', 'node-text')
+        .attr('x', d => getRadius(d) + 5)
+        .attr('y', 4)
+        .text(d => d.title);
+
+      nodeElements = nodeEnter.merge(nodeElements);
+
+      simulation.nodes(filteredNodes);
+      simulation.force('link').links(filteredLinks);
+      simulation.alpha(0.8).restart();
+    }
+
+    simulation.on('tick', () => {
+      linkElements
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+
+      nodeElements.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    // Drag handlers
+    function dragStarted(event, d) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    }
+    function dragged(event, d) {
+      d.fx = event.x;
+      d.fy = event.y;
+    }
+    function dragEnded(event, d) {
+      if (!event.active) simulation.alphaTarget(0);
+      d.fx = null;
+      d.fy = null;
+    }
+
+    // Highlighting
+    function highlightNeighbors(targetNode) {
+      const neighborIds = new Set([targetNode.id]);
+      filteredLinks.forEach(l => {
+        const sId = l.source.id || l.source;
+        const tId = l.target.id || l.target;
+        if (sId === targetNode.id) neighborIds.add(tId);
+        if (tId === targetNode.id) neighborIds.add(sId);
+      });
+
+      nodeElements.selectAll('circle')
+        .style('opacity', d => neighborIds.has(d.id) ? 1 : 0.2);
+      nodeElements.selectAll('text')
+        .style('opacity', d => neighborIds.has(d.id) ? 1 : 0.2);
+      linkElements
+        .classed('highlighted', l => {
+          const sId = l.source.id || l.source;
+          const tId = l.target.id || l.target;
+          return sId === targetNode.id || tId === targetNode.id;
+        })
+        .style('stroke-opacity', l => {
+          const sId = l.source.id || l.source;
+          const tId = l.target.id || l.target;
+          return (sId === targetNode.id || tId === targetNode.id) ? 1 : 0.08;
+        });
+    }
+
+    function resetHighlights() {
+      if (selectedNodeId) {
+        const node = nodeMap.get(selectedNodeId);
+        if (node) return highlightNeighbors(node);
+      }
+      nodeElements.selectAll('circle').style('opacity', 1);
+      nodeElements.selectAll('text').style('opacity', 1);
+      linkElements.classed('highlighted', false).style('stroke-opacity', 0.6);
+    }
+
+    // Node Selection & Reader Rendering
+    function selectNode(id) {
+      const node = nodeMap.get(id);
+      if (!node) return;
+      selectedNodeId = id;
+
+      // Update active class on circles
+      nodeElements.selectAll('circle')
+        .classed('active', d => d.id === id);
+      nodeElements.selectAll('text')
+        .classed('active', d => d.id === id);
+
+      highlightNeighbors(node);
+
+      // Center graph smoothly on selected node
+      const currentTransform = d3.zoomTransform(svg.node());
+      const scale = Math.max(1, currentTransform.k);
+      const targetX = width / 2 - node.x * scale;
+      const targetY = height / 2 - node.y * scale;
+
+      svg.transition().duration(600).call(
+        zoom.transform,
+        d3.zoomIdentity.translate(targetX, targetY).scale(scale)
+      );
+
+      // Open side panel & Populate
+      openSidePanel();
+      populatePanel(node);
+    }
+
+    function populatePanel(node) {
+      document.getElementById('panel-title').textContent = node.title;
+      document.getElementById('meta-path').textContent = node.path;
+      document.getElementById('meta-date').textContent = node.updated || node.created || 'N/A';
+      document.getElementById('panel-badge-category').textContent = node.category;
+      document.getElementById('panel-badge-status').textContent = node.status || 'active';
+
+      // Summary
+      const summaryBox = document.getElementById('panel-summary-box');
+      if (node.summary) {
+        document.getElementById('panel-summary').textContent = node.summary;
+        summaryBox.classList.remove('hidden');
+      } else {
+        summaryBox.classList.add('hidden');
+      }
+
+      // Tags
+      const tagsContainer = document.getElementById('panel-tags');
+      tagsContainer.innerHTML = '';
+      (node.tags || []).forEach(t => {
+        const span = document.createElement('span');
+        span.className = 'text-[10px] bg-gray-800 text-gray-300 px-2 py-0.5 rounded border border-gray-700';
+        span.textContent = `#${t}`;
+        tagsContainer.appendChild(span);
+      });
+
+      // Render Markdown with wikilink replacer
+      let mdContent = node.content || '';
+      // Replace [[Target]] with custom wikilink HTML
+      const processedMd = mdContent.replace(/\[\[(.*?)\]\]/g, (match, p1) => {
+        let target = p1.trim();
+        let alias = target;
+        if (target.includes('|')) {
+          const parts = target.split('|');
+          target = parts[0].trim();
+          alias = parts[1].trim();
+        }
+        target = target.split('#')[0].trim();
+        return `<a class="wikilink" href="javascript:void(0)" onclick="selectNodeByName('${target}')">${alias}</a>`;
+      });
+
+      document.getElementById('panel-markdown').innerHTML = marked.parse(processedMd);
+
+      // Render Connections
+      const connContainer = document.getElementById('panel-connections');
+      connContainer.innerHTML = '';
+      const connected = [];
+
+      links.forEach(l => {
+        const sId = l.source.id || l.source;
+        const tId = l.target.id || l.target;
+        if (sId === node.id) {
+          const other = nodeMap.get(tId);
+          if (other) connected.push({ node: other, type: 'outgoing' });
+        } else if (tId === node.id) {
+          const other = nodeMap.get(sId);
+          if (other) connected.push({ node: other, type: 'incoming' });
+        }
+      });
+
+      if (connected.length === 0) {
+        connContainer.innerHTML = '<div class="text-gray-500 italic">Sem conexões diretas.</div>';
+      } else {
+        connected.forEach(c => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between p-2 rounded bg-gray-900/60 hover:bg-gray-800 border border-gray-800/80 cursor-pointer transition';
+          row.onclick = () => selectNode(c.node.id);
+          row.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full" style="background-color: ${c.node.color}"></span>
+              <span class="text-gray-200 font-medium">${c.node.title}</span>
+            </div>
+            <span class="text-[10px] text-gray-400 font-mono">${c.type === 'outgoing' ? '→' : '←'}</span>
+          `;
+          connContainer.appendChild(row);
+        });
+      }
+    }
+
+    // Lookup node by name/stem/title
+    window.selectNodeByName = function(name) {
+      const clean = name.toLowerCase().replace(/\s+/g, '-').replace(/_/g, '-');
+      for (const node of nodes) {
+        const nodeStem = node.id.toLowerCase().replace(/\s+/g, '-').replace(/_/g, '-');
+        const nodeTitle = node.title.toLowerCase().replace(/\s+/g, '-').replace(/_/g, '-');
+        if (nodeStem === clean || nodeTitle === clean || node.path.includes(clean)) {
+          selectNode(node.id);
+          return;
+        }
+      }
+      console.warn('Nota não encontrada:', name);
+    };
+
+    // Category Filter
+    window.filterCategory = function(cat) {
+      activeCategory = cat;
+      document.querySelectorAll('.cat-pill').forEach(btn => {
+        if (btn.getAttribute('data-cat') === cat) {
+          btn.classList.add('bg-indigo-600', 'text-white');
+          btn.classList.remove('bg-gray-800');
+        } else {
+          btn.classList.remove('bg-indigo-600', 'text-white');
+          btn.classList.add('bg-gray-800');
+        }
+      });
+
+      if (cat === 'all') {
+        filteredNodes = [...nodes];
+      } else {
+        filteredNodes = nodes.filter(n => n.category === cat);
+      }
+      const allowedIds = new Set(filteredNodes.map(n => n.id));
+      filteredLinks = links.filter(l => {
+        const sId = l.source.id || l.source;
+        const tId = l.target.id || l.target;
+        return allowedIds.has(sId) && allowedIds.has(tId);
+      });
+
+      renderGraph();
+    };
+
+    // Panel controls
+    function openSidePanel() {
+      document.getElementById('side-panel').classList.remove('hidden');
+    }
+    function closeSidePanel() {
+      document.getElementById('side-panel').classList.add('hidden');
+      selectedNodeId = null;
+      resetHighlights();
+    }
+    function toggleSidePanel() {
+      document.getElementById('side-panel').classList.toggle('hidden');
+    }
+
+    // Reset View
+    window.resetGraphView = function() {
+      svg.transition().duration(500).call(
+        zoom.transform,
+        d3.zoomIdentity.translate(0, 0).scale(1)
+      );
+    };
+
+    // Instant Search
+    const searchInput = document.getElementById('search-input');
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      if (!q) {
+        resetHighlights();
+        return;
+      }
+      const matched = new Set();
+      nodes.forEach(n => {
+        const inTitle = n.title.toLowerCase().includes(q);
+        const inSummary = (n.summary || '').toLowerCase().includes(q);
+        const inTags = (n.tags || []).some(t => t.toLowerCase().includes(q));
+        const inContent = (n.content || '').toLowerCase().includes(q);
+        if (inTitle || inSummary || inTags || inContent) {
+          matched.add(n.id);
+        }
+      });
+
+      nodeElements.selectAll('circle').style('opacity', d => matched.has(d.id) ? 1 : 0.1);
+      nodeElements.selectAll('text').style('opacity', d => matched.has(d.id) ? 1 : 0.1);
+      linkElements.style('stroke-opacity', 0.05);
+
+      if (matched.size === 1) {
+        const firstId = Array.from(matched)[0];
+        selectNode(firstId);
+      }
+    });
+
+    // Keyboard shortcut /
+    window.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement !== searchInput) {
+        e.preventDefault();
+        searchInput.focus();
+      }
+      if (e.key === 'Escape') {
+        closeSidePanel();
+      }
+    });
+
+    // Initial render
+    renderGraph();
+
+    // Auto-select first note if available
+    if (nodes.length > 0) {
+      // Prefer a resource note if available
+      const prime = nodes.find(n => n.category === 'resources') || nodes[0];
+      selectNode(prime.id);
+    }
+  </script>
+</body>
+</html>
