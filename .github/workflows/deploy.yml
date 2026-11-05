@@ -37,6 +37,8 @@ jobs:
 
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Fazer Upload do Artefato Pages (docs/)
         uses: actions/upload-pages-artifact@v3
@@ -46,3 +48,4 @@ jobs:
       - name: Publicar no GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
